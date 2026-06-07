@@ -1,0 +1,44 @@
+run_name: qwen_3b_qlora_v1_failure_driven
+
+model:
+  base_model_path: /home/rajiv/models/base/qwen2_5_3b_instruct
+  trust_remote_code: true
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
+
+data:
+  train_file: data/sft/merchmix_sft_v3.jsonl
+  max_seq_length: 2048
+
+output:
+  output_dir: artifacts/adapters/qwen_3b_qlora_v1_failure_driven
+  report_dir: reports/training_runs/qwen_3b_qlora_v1_failure_driven
+
+training:
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 12
+  learning_rate: 0.00015
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  logging_steps: 5
+  save_steps: 50
+  bf16: true
+  fp16: false
+  gradient_checkpointing: true
+  max_grad_norm: 0.3
+  seed: 42
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

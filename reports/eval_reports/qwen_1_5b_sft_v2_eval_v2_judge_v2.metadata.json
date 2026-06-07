@@ -1,0 +1,50 @@
+{
+  "created_at_utc": "2026-06-07T19:28:57.398956+00:00",
+  "commit_hash": "8148e64750a4a1c531c8486863a64d82d78273be",
+  "base_model": "/home/rajiv/models/base/qwen2_5_1_5b_instruct",
+  "adapter": "artifacts/adapters/qwen_1_5b_sft_v2_failure_driven",
+  "eval_dir": "data/eval_v2",
+  "dataset_hash": {
+    "combined_sha256": "e97e7bafad3be31c6b1c8fdce6b73f6a58af6afa49730f0cf5ec93948d70731f",
+    "files": [
+      {
+        "path": "data/eval_v2/bigquery_debug_v2.jsonl",
+        "sha256": "5a348f85b224c51722f854f8edf9263a6192ad67c79454ca98aa52df05d11540"
+      },
+      {
+        "path": "data/eval_v2/pipeline_debug_v2.jsonl",
+        "sha256": "61e690b0cced5584eb35871b7687bdf717484ec8090807717431fc47ee6c52a7"
+      },
+      {
+        "path": "data/eval_v2/postgres_bq_reconciliation_v2.jsonl",
+        "sha256": "d4590002d821b7579630e4c5e960e80e97ea8216da216a1e23f7fe9d86cc5de5"
+      },
+      {
+        "path": "data/eval_v2/retail_metric_reasoning_v2.jsonl",
+        "sha256": "326305741936be9a76e13bf89ade72abb4c7a9c9bae3387467b7c15bc8094f4b"
+      },
+      {
+        "path": "data/eval_v2/safety_tool_use_v2.jsonl",
+        "sha256": "bf8b86424923a703d2e65261a48f9617259c2ceba340417f87620d8ccf286d25"
+      },
+      {
+        "path": "data/eval_v2/sql_generation_v2.jsonl",
+        "sha256": "989c2fa0c36d3e445f4bbba196a708eb27f24c5ccfde7f6f20b3e6cd02e687cf"
+      }
+    ]
+  },
+  "generation_config": {
+    "max_new_tokens": 512,
+    "do_sample": false,
+    "num_beams": 1
+  },
+  "system_prompt": "You are a precise retail data engineering assistant for Merchmix. Diagnose data issues with grain analysis, safe SQL, validation queries, and clear interpretation. Never suggest destructive SQL for production tables. Prefer read-only checks, preview tables, backups, and validation steps.",
+  "judge": "judge_v2",
+  "environment": {
+    "python": "3.11.15",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "torch": "2.12.0+cu126",
+    "transformers": "4.57.6",
+    "peft": "0.19.1"
+  }
+}

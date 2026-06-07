@@ -1,0 +1,14 @@
+{
+  "eval_dataset_hash": "ae0cf5bc5e2af3230c14856c0a3ecde4c1d2c56096cec07277ad6006838ad846",
+  "judge_version": "8148e64750a4a1c531c8486863a64d82d78273be",
+  "commit_hash": "8148e64750a4a1c531c8486863a64d82d78273be",
+  "model_path": "/home/rajiv/models/base/qwen2_5_0_5b_instruct",
+  "adapter_path": "artifacts/adapters/qwen_0_5b_sft_v2",
+  "generation_config": {
+    "random_seed": "not_set",
+    "temperature": null,
+    "top_p": null,
+    "max_new_tokens": 512,
+    "do_sample": false
+  }
+}
