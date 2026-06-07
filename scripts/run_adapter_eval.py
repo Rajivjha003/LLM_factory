@@ -82,6 +82,40 @@ def run_evaluation(base_model: str, adapter: str, eval_dir: str, output_jsonl: s
 
     print(f"Saved {len(results)} eval results to {output_jsonl}")
 
+    # Telemetry
+    import hashlib
+    import subprocess
+    
+    try:
+        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+    except Exception:
+        commit_hash = "unknown"
+
+    eval_hash = hashlib.sha256()
+    for file in sorted(eval_files):
+        with open(file, "rb") as f:
+            eval_hash.update(f.read())
+            
+    metadata = {
+        "eval_dataset_hash": eval_hash.hexdigest(),
+        "judge_version": commit_hash,
+        "commit_hash": commit_hash,
+        "model_path": base_model,
+        "adapter_path": adapter,
+        "generation_config": {
+            "random_seed": "not_set",
+            "temperature": None,
+            "top_p": None,
+            "max_new_tokens": 512,
+            "do_sample": False
+        }
+    }
+    
+    meta_path = Path(output_jsonl).with_suffix(".meta.json")
+    with open(meta_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+    print(f"Saved eval metadata to {meta_path}")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-model", type=str, default="/home/rajiv/models/base/qwen2_5_0_5b_instruct")

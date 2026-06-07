@@ -81,11 +81,38 @@ def run_lora_training(config_path: str) -> None:
     )
 
     print("Starting training...")
-    trainer.train()
+    train_result = trainer.train()
     
     print(f"Saving adapter to {config['output_dir']}")
     trainer.save_model(config["output_dir"])
     tokenizer.save_pretrained(config["output_dir"])
+
+    # Collect telemetry
+    log_history = trainer.state.log_history
+    losses = [log.get("loss") for log in log_history if "loss" in log]
+    start_loss = losses[0] if losses else None
+    end_loss = losses[-1] if losses else None
+
+    trainable_params, all_params = model.get_nb_trainable_parameters()
+    
+    telemetry = {
+        "training_loss_start": start_loss,
+        "training_loss_end": end_loss,
+        "train_loss_overall": train_result.metrics.get("train_loss"),
+        "tokens_per_sec": train_result.metrics.get("train_steps_per_second", 0) * config["per_device_train_batch_size"] * config["max_seq_length"], # Approximate
+        "gpu_memory_peak_gb": torch.cuda.max_memory_allocated() / (1024**3) if torch.cuda.is_available() else 0,
+        "number_of_optimizer_steps": train_result.global_step,
+        "effective_batch_size": config["per_device_train_batch_size"] * config.get("gradient_accumulation_steps", 1),
+        "epochs": train_result.metrics.get("epoch"),
+        "lora_rank": config["lora_r"],
+        "trainable_parameter_count": trainable_params,
+        "total_parameter_count": all_params,
+    }
+
+    report_path = Path(config["output_dir"]) / "training_report.json"
+    with open(report_path, "w") as f:
+        json.dump(telemetry, f, indent=2)
+    print(f"Saved training telemetry to {report_path}")
 
 def main():
     parser = argparse.ArgumentParser()
