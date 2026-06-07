@@ -95,3 +95,7 @@ memory/cache/*
 
 # Keep folder placeholders
 !**/.gitkeep
+
+# Keep curated eval datasets versioned
+!data/eval/
+!data/eval/*.jsonl
