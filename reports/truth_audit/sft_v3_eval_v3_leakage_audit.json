@@ -1,0 +1,39 @@
+{
+  "sft": "data/sft/merchmix_sft_v3.jsonl",
+  "eval_dir": "data/eval_v3",
+  "passed": true,
+  "lexical": {
+    "command": [
+      "python",
+      "scripts/check_sft_eval_overlap_strict.py",
+      "--sft",
+      "data/sft/merchmix_sft_v3.jsonl",
+      "--eval-dir",
+      "data/eval_v3",
+      "--output",
+      "reports/truth_audit/sft_v3_eval_v3_lexical_overlap.md",
+      "--fail-threshold",
+      "0.8"
+    ],
+    "returncode": 0,
+    "stdout": "Saved strict overlap report to reports/truth_audit/sft_v3_eval_v3_lexical_overlap.md\nPASS: No strict data contamination detected.\n",
+    "stderr": ""
+  },
+  "semantic": {
+    "command": [
+      "python",
+      "scripts/check_semantic_overlap.py",
+      "--sft",
+      "data/sft/merchmix_sft_v3.jsonl",
+      "--eval-dir",
+      "data/eval_v3",
+      "--output-md",
+      "reports/truth_audit/sft_v3_eval_v3_semantic_overlap.md",
+      "--fail-threshold",
+      "0.88"
+    ],
+    "returncode": 0,
+    "stdout": "Wrote reports/truth_audit/sft_v3_eval_v3_semantic_overlap.md\n",
+    "stderr": "\nBatches:   0%|          | 0/16 [00:00<?, ?it/s]\nBatches:   6%|\u258b         | 1/16 [00:00<00:05,  2.83it/s]\nBatches:  88%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a | 14/16 [00:00<00:00, 38.64it/s]\nBatches: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 16/16 [00:00<00:00, 33.66it/s]\n\nBatches:   0%|          | 0/2 [00:00<?, ?it/s]\nBatches: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2/2 [00:00<00:00, 142.75it/s]\n"
+  }
+}

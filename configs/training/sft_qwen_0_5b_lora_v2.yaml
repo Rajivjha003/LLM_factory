@@ -1,0 +1,19 @@
+model_name_or_path: "/home/rajiv/models/base/qwen2_5_0_5b_instruct"
+dataset_path: "data/sft/merchmix_sft_v2.jsonl"
+output_dir: "artifacts/adapters/qwen_0_5b_sft_v2"
+
+# LoRA Config
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Training Params
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-4
+num_train_epochs: 3
+logging_steps: 5
+save_strategy: "epoch"
+fp16: true
+max_seq_length: 1024

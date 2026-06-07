@@ -2,6 +2,8 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from openai import AsyncOpenAI
 from llm_ops.eval.schemas import EvalSample, EvalResult
 from llm_ops.eval.simple_judge import SimpleJudge
