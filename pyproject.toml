@@ -39,6 +39,9 @@ torchvision = { index = "pytorch-cu126" }
 torchaudio = { index = "pytorch-cu126" }
 
 [dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
 serve = [
     "fastapi>=0.136.3",
     "openai>=2.41.0",
