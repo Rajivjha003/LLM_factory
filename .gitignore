@@ -103,3 +103,4 @@ memory/cache/*
 # Keep curated sft datasets versioned
 !data/sft/
 !data/sft/*.jsonl
+models/
