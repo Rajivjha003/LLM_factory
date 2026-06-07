@@ -481,6 +481,9 @@ This is the stable setup we learned from the errors.
 
 # K. Troubleshooting: vLLM flashinfer JIT Compilation Errors
 
+> [!WARNING]
+> **Temporary Workaround:** Patching files directly inside `.venv/site-packages` is extremely fragile and is not recommended for production. Any `uv sync`, upgrade, or fresh setup will overwrite this patch. This is a temporary emergency fix until we harden the vLLM environment with pinned compatible CUDA toolchains (Option A/B/C/D).
+
 If you encounter C++ compilation errors when starting `vLLM` (e.g., `has no member "FlagHeads"` or `#error "CUDA compiler and CUDA toolkit headers are incompatible"`), it means the system's `nvcc` version (e.g., CUDA 13.x) is mismatched with PyTorch's bundled headers (CUDA 12.x). 
 
 `flashinfer` has a strict compatibility check that causes the JIT-compilation to crash. You can bypass this by patching the `cuda_toolkit.h` file directly in your `.venv` and clearing the cache:
