@@ -1,0 +1,1689 @@
+Task: You will learn full LLM engineering by building a complete pipeline from tiny pretraining → SFT → preference optimization → quantization → serving → monitoring → RAG → agentic deployment. Then you scale the same architecture to cloud when needed.
+
+
+
+Below is the **world-class end-to-end LLM build blueprint** for your Alienware machine, but with one brutal constraint up front:
+
+Your laptop is powerful for **fine-tuning, post-training, quantization, local inference, evaluation, RAG, LLMOps, and small pretraining experiments**. It is **not enough to train a competitive modern LLM from scratch** beyond toy/small models. With RTX 4090 Laptop 16 GB VRAM, your realistic local range is:
+
+| Goal                             |       Realistic on your machine? | Best path                                          |
+| -------------------------------- | -------------------------------: | -------------------------------------------------- |
+| Train tokenizer from scratch     |                              Yes | SentencePiece / HF Tokenizers                      |
+| Pretrain tiny LLM from scratch   |                              Yes | 30M–300M parameters                                |
+| Pretrain useful 1B+ from scratch |                      Hard / slow | Needs multi-GPU/cloud                              |
+| Fine-tune 1B–3B                  |                              Yes | LoRA / QLoRA / Unsloth / TRL                       |
+| Fine-tune 7B–8B                  |                   Yes, carefully | QLoRA 4-bit, short context, gradient checkpointing |
+| Fine-tune 14B                    |             Possible but painful | QLoRA + low batch + maybe CPU offload              |
+| Full fine-tune 7B+               |            Not realistic locally | Cloud GPU                                          |
+| RLHF / DPO / GRPO                |           Yes for small/7B QLoRA | TRL                                                |
+| vLLM serving                     | Yes for smaller/quantized models | Linux/WSL preferred                                |
+| llama.cpp GGUF inference         |                              Yes | Best for local CPU/GPU hybrid                      |
+| Production LLMOps                |                              Yes | FastAPI + vLLM + eval + monitoring                 |
+| Pruning / distillation           |                              Yes | Advanced phase                                     |
+
+The core strategy: **do not waste time trying to train a frontier model from zero.** You will learn full LLM engineering by building a complete pipeline from tiny pretraining → SFT → preference optimization → quantization → serving → monitoring → RAG → agentic deployment. Then you scale the same architecture to cloud when needed.
+
+---
+
+# 1. The target architecture
+
+Think of your LLM system as **seven layers**.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ 7. Product / Agent Layer                                      │
+│    Chat UI, API, RAG apps, agents, tool calling, workflows     │
+├──────────────────────────────────────────────────────────────┤
+│ 6. Serving Layer                                               │
+│    vLLM, llama.cpp, TensorRT-LLM, FastAPI, streaming           │
+├──────────────────────────────────────────────────────────────┤
+│ 5. Optimization Layer                                          │
+│    Quantization, pruning, distillation, speculative decoding   │
+├──────────────────────────────────────────────────────────────┤
+│ 4. Alignment Layer                                             │
+│    SFT, DPO, ORPO, KTO, PPO/RLHF, GRPO/RLVR                    │
+├──────────────────────────────────────────────────────────────┤
+│ 3. Training Layer                                              │
+│    Pretraining, fine-tuning, LoRA, QLoRA, PEFT, DeepSpeed      │
+├──────────────────────────────────────────────────────────────┤
+│ 2. Data Layer                                                  │
+│    Raw data, cleaning, tokenization, instruction data, prefs   │
+├──────────────────────────────────────────────────────────────┤
+│ 1. Infrastructure / LLMOps Layer                               │
+│    WSL2/Linux, CUDA, PyTorch, MLflow/W&B, DVC, Docker, CI/CD   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Your execution path:
+
+```text
+TinyLLM from scratch
+        ↓
+Instruction fine-tuned SLLM
+        ↓
+QLoRA fine-tuned open model
+        ↓
+Preference-optimized model using DPO/GRPO
+        ↓
+Quantized GGUF/vLLM deployment
+        ↓
+RAG + agentic application
+        ↓
+Evaluation + monitoring + retraining loop
+```
+
+---
+
+# 2. Current best stack, verified
+
+Use this stack as your default.
+
+| Area                        | Recommended tools                                    |
+| --------------------------- | ---------------------------------------------------- |
+| Base framework              | PyTorch, Transformers, Datasets, Accelerate          |
+| Tokenizer                   | Hugging Face Tokenizers / SentencePiece              |
+| Fine-tuning                 | TRL, PEFT, Unsloth, Axolotl                          |
+| LoRA / QLoRA                | PEFT, bitsandbytes, Unsloth                          |
+| RLHF / DPO / GRPO           | Hugging Face TRL                                     |
+| Experiment tracking         | Weights & Biases or MLflow                           |
+| Dataset/versioning          | DVC, Hugging Face Datasets                           |
+| Eval                        | lm-eval-harness, Lighteval, Ragas, custom evals      |
+| Inference server            | vLLM, llama.cpp, FastAPI                             |
+| Local quantized inference   | llama.cpp / GGUF                                     |
+| Production NVIDIA inference | TensorRT-LLM                                         |
+| RAG                         | LlamaIndex / LangChain / custom retrieval            |
+| Vector DB                   | Qdrant, Milvus, pgvector, Chroma                     |
+| Containers                  | Docker, WSL2 Ubuntu                                  |
+| API                         | FastAPI + Pydantic                                   |
+| Observability               | OpenTelemetry, Prometheus, Grafana, Langfuse/Phoenix |
+
+Hugging Face TRL now supports the major post-training methods you care about, including SFT, DPO, GRPO, reward modeling, and related preference/RL workflows. ([Hugging Face][1]) PEFT remains the standard Hugging Face path for LoRA-style parameter-efficient fine-tuning, and its LoRA guide covers current LoRA configuration patterns and variants. ([Hugging Face][2]) vLLM is one of the strongest open-source serving stacks for high-throughput LLM inference, and its quantization docs explicitly support deployment-oriented lower-precision formats such as FP8, INT8, and INT4 through the LLM Compressor ecosystem. ([vLLM][3]) llama.cpp uses the GGUF workflow: convert Hugging Face weights to GGUF, then quantize into formats like Q4_K_M for efficient local inference. ([GitHub][4]) NVIDIA TensorRT-LLM is the high-performance NVIDIA deployment path when you need optimized GPU inference engines beyond ordinary PyTorch serving. ([NVIDIA GitHub][5])
+
+---
+
+# 3. Hardware strategy for your Alienware
+
+Your system:
+
+```text
+CPU: Intel i9-14900HX
+RAM: 64 GB
+GPU: RTX 4090 Laptop, 16 GB VRAM
+Storage: ~1.63 TB free
+OS: Windows 11 Home
+```
+
+## Best setup
+
+Use **WSL2 Ubuntu**, not native Windows Python, for serious LLM work.
+
+```text
+Windows 11
+   └── WSL2 Ubuntu 24.04
+          ├── CUDA-compatible PyTorch
+          ├── uv / conda
+          ├── Docker optional
+          ├── Hugging Face cache on large SSD
+          └── projects under /home/<user>/llm-lab
+```
+
+## Realistic model sizes
+
+| Model size | Local training strategy                               |
+| ---------: | ----------------------------------------------------- |
+|   50M–300M | Full pretraining from scratch                         |
+|    500M–1B | Small pretraining/fine-tuning possible                |
+|      1B–3B | Comfortable LoRA/QLoRA                                |
+|      7B–8B | QLoRA, Unsloth, low batch size                        |
+|        14B | Possible only with aggressive memory tricks           |
+|       30B+ | Inference maybe quantized; training not realistic     |
+|        70B | llama.cpp inference maybe slow/offloaded; training no |
+
+## First-principles rule
+
+Do **three modes**, not one:
+
+```text
+Mode A — Learn architecture:
+Train tiny model from scratch.
+
+Mode B — Build useful model:
+Fine-tune Qwen/Llama/Mistral/Gemma small model.
+
+Mode C — Productionize:
+Quantize + serve + evaluate + monitor.
+```
+
+---
+
+# 4. Model roadmap
+
+Use this progression.
+
+## Level 1 — Tiny model from scratch
+
+Purpose: understand internals.
+
+```text
+Model: 30M–125M decoder-only Transformer
+Dataset: TinyStories / small cleaned corpus / your domain text
+Context: 512–1024 tokens
+Tokenizer: BPE or SentencePiece
+Training: causal language modeling
+Output: base model that predicts next tokens
+```
+
+You learn:
+
+```text
+tokenization
+embedding
+attention
+RoPE
+causal mask
+loss
+optimizer
+scheduler
+checkpointing
+perplexity
+generation
+```
+
+## Level 2 — Small instruction model
+
+Purpose: turn base model into assistant.
+
+```text
+Base: your tiny pretrained model or small open model
+Dataset: instruction-response pairs
+Method: SFT
+Output: basic chatbot behavior
+```
+
+## Level 3 — Fine-tune open SLLM
+
+Purpose: useful local model.
+
+Recommended models to test:
+
+```text
+Qwen 2.5/3 small family
+Llama 3.1/3.2 3B/8B family
+Mistral 7B family
+Gemma small family
+Phi small family
+```
+
+For your 16 GB VRAM, start with **1.5B–3B**, then move to **7B/8B QLoRA**.
+
+## Level 4 — Preference optimization
+
+Purpose: make the model obey your style and quality preferences.
+
+Start with:
+
+```text
+SFT → DPO
+```
+
+Then:
+
+```text
+SFT → reward model → PPO/RLHF
+```
+
+Then advanced:
+
+```text
+GRPO / RLVR for verifiable reasoning tasks
+```
+
+TRL is the main library here because it provides full-stack training support for SFT, DPO, GRPO, reward modeling, and other alignment methods. ([Hugging Face][1])
+
+## Level 5 — Production inference
+
+Use two targets:
+
+```text
+vLLM:
+  Best for API serving, throughput, batching, OpenAI-compatible endpoints.
+
+llama.cpp:
+  Best for local GGUF, laptop/CPU/GPU hybrid, portable quantized models.
+```
+
+vLLM is designed for fast, memory-efficient LLM serving and grew out of the PagedAttention work, which targets KV-cache memory efficiency and higher throughput. ([GitHub][6]) llama.cpp’s standard path is Hugging Face → GGUF → quantized GGUF → local inference. ([GitHub][4])
+
+---
+
+# 5. Full repository architecture
+
+Create this project:
+
+```text
+llm-lab/
+│
+├── README.md
+├── pyproject.toml
+├── requirements/
+│   ├── base.txt
+│   ├── train.txt
+│   ├── serve.txt
+│   ├── rag.txt
+│   ├── eval.txt
+│   └── dev.txt
+│
+├── configs/
+│   ├── hardware/
+│   │   ├── alienware_4090_laptop.yaml
+│   │   └── cloud_a100.yaml
+│   │
+│   ├── data/
+│   │   ├── tokenizer.yaml
+│   │   ├── pretrain_data.yaml
+│   │   ├── sft_data.yaml
+│   │   └── preference_data.yaml
+│   │
+│   ├── models/
+│   │   ├── tiny_125m.yaml
+│   │   ├── qwen_3b_qlora.yaml
+│   │   ├── llama_8b_qlora.yaml
+│   │   └── mistral_7b_qlora.yaml
+│   │
+│   ├── training/
+│   │   ├── pretrain.yaml
+│   │   ├── sft_lora.yaml
+│   │   ├── sft_qlora.yaml
+│   │   ├── dpo.yaml
+│   │   ├── reward_model.yaml
+│   │   ├── ppo.yaml
+│   │   └── grpo.yaml
+│   │
+│   ├── inference/
+│   │   ├── vllm.yaml
+│   │   ├── llama_cpp.yaml
+│   │   └── tensorrt_llm.yaml
+│   │
+│   └── eval/
+│       ├── benchmark.yaml
+│       ├── safety.yaml
+│       ├── rag_eval.yaml
+│       └── human_eval.yaml
+│
+├── data/
+│   ├── raw/
+│   ├── external/
+│   ├── interim/
+│   ├── processed/
+│   ├── tokenized/
+│   ├── sft/
+│   ├── preference/
+│   └── eval/
+│
+├── notebooks/
+│   ├── 01_tokenizer_exploration.ipynb
+│   ├── 02_dataset_quality.ipynb
+│   ├── 03_training_curves.ipynb
+│   └── 04_eval_analysis.ipynb
+│
+├── src/
+│   └── llm_lab/
+│       ├── __init__.py
+│       │
+│       ├── data/
+│       │   ├── ingest.py
+│       │   ├── clean.py
+│       │   ├── dedupe.py
+│       │   ├── pii_filter.py
+│       │   ├── quality_score.py
+│       │   ├── prepare_pretrain.py
+│       │   ├── prepare_sft.py
+│       │   ├── prepare_preferences.py
+│       │   └── schemas.py
+│       │
+│       ├── tokenizer/
+│       │   ├── train_tokenizer.py
+│       │   ├── inspect_tokenizer.py
+│       │   └── compare_tokenizers.py
+│       │
+│       ├── models/
+│       │   ├── tiny_transformer.py
+│       │   ├── model_factory.py
+│       │   ├── rope.py
+│       │   ├── attention.py
+│       │   └── generation.py
+│       │
+│       ├── training/
+│       │   ├── pretrain.py
+│       │   ├── sft.py
+│       │   ├── lora_sft.py
+│       │   ├── qlora_sft.py
+│       │   ├── dpo.py
+│       │   ├── reward_model.py
+│       │   ├── ppo.py
+│       │   ├── grpo.py
+│       │   ├── callbacks.py
+│       │   └── checkpointing.py
+│       │
+│       ├── optimization/
+│       │   ├── merge_lora.py
+│       │   ├── quantize_gguf.py
+│       │   ├── quantize_bnb.py
+│       │   ├── prune.py
+│       │   ├── distill.py
+│       │   └── export.py
+│       │
+│       ├── eval/
+│       │   ├── perplexity.py
+│       │   ├── instruction_eval.py
+│       │   ├── preference_eval.py
+│       │   ├── rag_eval.py
+│       │   ├── safety_eval.py
+│       │   ├── regression_tests.py
+│       │   └── report.py
+│       │
+│       ├── rag/
+│       │   ├── chunk.py
+│       │   ├── embed.py
+│       │   ├── retrieve.py
+│       │   ├── rerank.py
+│       │   ├── generate.py
+│       │   └── pipeline.py
+│       │
+│       ├── serving/
+│       │   ├── api.py
+│       │   ├── schemas.py
+│       │   ├── vllm_server.py
+│       │   ├── llama_cpp_server.py
+│       │   ├── router.py
+│       │   └── streaming.py
+│       │
+│       ├── observability/
+│       │   ├── logging.py
+│       │   ├── tracing.py
+│       │   ├── metrics.py
+│       │   ├── drift.py
+│       │   └── feedback_store.py
+│       │
+│       └── utils/
+│           ├── config.py
+│           ├── seed.py
+│           ├── gpu.py
+│           └── io.py
+│
+├── scripts/
+│   ├── setup_wsl.sh
+│   ├── download_model.py
+│   ├── train_tokenizer.py
+│   ├── pretrain_tiny.py
+│   ├── run_sft.py
+│   ├── run_dpo.py
+│   ├── merge_adapter.py
+│   ├── export_gguf.sh
+│   ├── quantize_gguf.sh
+│   ├── serve_vllm.sh
+│   ├── serve_llama_cpp.sh
+│   └── run_eval.py
+│
+├── app/
+│   ├── api/
+│   ├── ui/
+│   └── demo/
+│
+├── docker/
+│   ├── Dockerfile.train
+│   ├── Dockerfile.serve
+│   └── docker-compose.yml
+│
+├── tests/
+│   ├── test_data.py
+│   ├── test_tokenizer.py
+│   ├── test_generation.py
+│   ├── test_eval.py
+│   └── test_api.py
+│
+├── reports/
+│   ├── model_cards/
+│   ├── eval_reports/
+│   └── training_runs/
+│
+└── artifacts/
+    ├── checkpoints/
+    ├── adapters/
+    ├── merged_models/
+    ├── gguf/
+    ├── quantized/
+    └── exported/
+```
+
+---
+
+# 6. Requirements
+
+Use separate requirement files.
+
+## `requirements/base.txt`
+
+```txt
+torch
+torchvision
+torchaudio
+transformers
+datasets
+tokenizers
+accelerate
+safetensors
+sentencepiece
+numpy
+pandas
+scipy
+scikit-learn
+tqdm
+pyyaml
+rich
+typer
+pydantic
+python-dotenv
+```
+
+## `requirements/train.txt`
+
+```txt
+trl
+peft
+bitsandbytes
+einops
+wandb
+mlflow
+evaluate
+lighteval
+lm-eval
+deepspeed
+flash-attn
+```
+
+Note: `flash-attn` on Windows is painful. Use WSL2/Linux.
+
+## `requirements/serve.txt`
+
+```txt
+fastapi
+uvicorn
+sse-starlette
+openai
+vllm
+llama-cpp-python
+prometheus-client
+opentelemetry-api
+opentelemetry-sdk
+```
+
+## `requirements/rag.txt`
+
+```txt
+qdrant-client
+chromadb
+faiss-cpu
+sentence-transformers
+FlagEmbedding
+llama-index
+langchain
+rank-bm25
+ragas
+```
+
+## `requirements/eval.txt`
+
+```txt
+pytest
+deepeval
+ragas
+lighteval
+lm-eval
+rouge-score
+bert-score
+sacrebleu
+matplotlib
+plotly
+```
+
+---
+
+# 7. Methodology map
+
+## 7.1 Pretraining from scratch
+
+Use this to learn foundations.
+
+Pipeline:
+
+```text
+Raw text
+  → clean
+  → dedupe
+  → PII/safety filtering
+  → tokenizer training
+  → tokenized dataset
+  → causal LM training
+  → perplexity eval
+  → generation eval
+```
+
+Core training objective:
+
+```text
+Given tokens x₁, x₂, ..., xₙ
+Predict x₂, x₃, ..., xₙ₊₁
+Loss = cross entropy over next-token prediction
+```
+
+Minimum architecture:
+
+```text
+Embedding
+→ N Transformer decoder blocks
+→ RMSNorm
+→ RoPE attention
+→ SwiGLU MLP
+→ LM head
+```
+
+For your laptop:
+
+```text
+vocab_size: 16k–32k
+context_length: 512–1024
+layers: 8–16
+hidden_size: 512–768
+heads: 8–12
+params: 50M–150M
+precision: bf16/fp16
+```
+
+## 7.2 SFT — supervised fine-tuning
+
+Use this when you have good examples:
+
+```json
+{
+  "messages": [
+    {"role": "system", "content": "You are a precise retail data engineering assistant."},
+    {"role": "user", "content": "Explain this BigQuery issue."},
+    {"role": "assistant", "content": "The issue is caused by..."}
+  ]
+}
+```
+
+Use SFT for:
+
+```text
+tone
+format
+domain behavior
+tool-use style
+SQL explanation
+retail/merchandising expertise
+coding assistant behavior
+```
+
+## 7.3 LoRA
+
+LoRA trains small adapter matrices instead of all model weights. This is your default for fast fine-tuning.
+
+Use when:
+
+```text
+You want style/task/domain adaptation.
+You have 1k–200k high-quality examples.
+You want cheap experiments.
+```
+
+## 7.4 QLoRA
+
+QLoRA freezes the base model in 4-bit precision and trains LoRA adapters through it. The original QLoRA paper introduced memory-saving techniques such as 4-bit NormalFloat, double quantization, and paged optimizers; it showed that large models could be fine-tuned with far less memory than full fine-tuning. ([arXiv][7])
+
+Use QLoRA for your laptop.
+
+Recommended starting config:
+
+```yaml
+load_in_4bit: true
+bnb_4bit_quant_type: nf4
+bnb_4bit_compute_dtype: bfloat16
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+gradient_checkpointing: true
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+max_seq_length: 2048
+learning_rate: 2e-4
+```
+
+## 7.5 DPO
+
+DPO is the practical first preference optimization method.
+
+Dataset format:
+
+```json
+{
+  "prompt": "Explain why this SQL join duplicates rows.",
+  "chosen": "The join duplicates rows because...",
+  "rejected": "The query is wrong because SQL is bad."
+}
+```
+
+Use DPO after SFT.
+
+## 7.6 RLHF
+
+Classic RLHF flow:
+
+```text
+SFT model
+  → collect human preference data
+  → train reward model
+  → optimize policy with PPO
+  → evaluate and safety test
+```
+
+Use only after you understand SFT + DPO. PPO/RLHF is more fragile than DPO.
+
+## 7.7 GRPO / RLVR
+
+Use for reasoning tasks with verifiable rewards:
+
+```text
+math
+SQL correctness
+code unit tests
+data engineering diagnosis
+structured output compliance
+```
+
+Example reward:
+
+```text
++1 if generated SQL runs
++1 if output schema correct
++1 if result count matches expected
+-1 if syntax error
+-1 if unsafe operation
+```
+
+This is powerful for your goal because your domain has many verifiable tasks: BigQuery, ETL, retail analytics, API debugging.
+
+## 7.8 Chain-of-thought training
+
+Do **not** blindly train on noisy chain-of-thought. Train on:
+
+```text
+concise reasoning traces
+scratchpad-to-answer pairs
+rationale distillation
+verifiable step-by-step tasks
+tool-call traces
+reflection/correction traces
+```
+
+Best pattern:
+
+```text
+User problem
+→ hidden scratch reasoning / structured plan
+→ final answer
+→ verifier result
+→ corrected answer
+```
+
+For production, train the model to produce:
+
+```text
+brief explanation
+structured diagnosis
+safe final answer
+```
+
+Do not force it to expose long private reasoning. Teach it to reason internally and answer cleanly.
+
+---
+
+# 8. Quantization strategy
+
+Use three quantization lanes.
+
+## Lane A — Training-time quantization
+
+```text
+QLoRA
+bitsandbytes 4-bit NF4
+```
+
+Purpose:
+
+```text
+fit bigger models during fine-tuning
+```
+
+## Lane B — Local deployment quantization
+
+```text
+GGUF with llama.cpp
+Q4_K_M
+Q5_K_M
+Q6_K
+Q8_0
+```
+
+Start with:
+
+```text
+Q4_K_M = best size/speed compromise
+Q5_K_M = better quality
+Q8_0 = near-full quality, bigger
+```
+
+llama.cpp’s documented workflow is to convert the HF model to GGUF and then quantize the GGUF file. ([GitHub][4]) Recent quantization research also emphasizes that the best scheme depends on the target model, benchmark, and resource budget, not just “lower bits = better.” ([arXiv][8])
+
+## Lane C — Production GPU quantization
+
+```text
+vLLM quantization
+AWQ
+GPTQ
+FP8
+INT8
+INT4
+TensorRT-LLM
+```
+
+vLLM’s quantization docs frame quantization as a deployment trade-off: smaller memory footprint and wider hardware feasibility in exchange for precision loss. ([vLLM][3])
+
+---
+
+# 9. Pruning and distillation
+
+Do these later, not first.
+
+## Pruning
+
+Use pruning when:
+
+```text
+You need smaller latency.
+You can tolerate quality loss.
+You have strong eval benchmarks.
+```
+
+Types:
+
+```text
+unstructured weight pruning
+structured pruning
+attention head pruning
+MLP/channel pruning
+layer dropping
+```
+
+Risk:
+
+```text
+Pruning without eval = silent model damage.
+```
+
+## Distillation
+
+Better than pruning for many cases.
+
+Pipeline:
+
+```text
+Large teacher model
+  → generate high-quality instruction data
+  → filter + score
+  → train smaller student model
+  → evaluate
+```
+
+Use this for building your own **retail/data-engineering SLLM**.
+
+---
+
+# 10. LLMOps architecture
+
+Production loop:
+
+```text
+Data version
+  → train
+  → evaluate
+  → register model
+  → deploy canary
+  → monitor
+  → collect feedback
+  → retrain
+```
+
+System design:
+
+```text
+┌───────────────┐
+│ Data Sources  │
+│ docs/sql/logs │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Data Pipeline │
+│ clean/dedupe  │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Dataset Store │
+│ DVC/HF/local  │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Training      │
+│ SFT/DPO/GRPO  │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Evaluation    │
+│ quality/safe  │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Model Registry│
+│ MLflow/W&B    │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Serving       │
+│ vLLM/FastAPI  │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Monitoring    │
+│ latency/cost  │
+│ quality/drift │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ Feedback Data │
+└───────────────┘
+```
+
+Track these metrics:
+
+| Layer    | Metrics                                                     |
+| -------- | ----------------------------------------------------------- |
+| Training | loss, perplexity, tokens/sec, GPU memory, gradient norm     |
+| SFT      | format adherence, helpfulness, task success                 |
+| DPO/RLHF | win rate, reward margin, refusal rate                       |
+| RAG      | context precision, recall, faithfulness, answer correctness |
+| Serving  | TTFT, tokens/sec, p95 latency, GPU memory, queue time       |
+| Product  | thumbs up/down, escalation rate, regeneration rate          |
+| Safety   | hallucination rate, unsafe answer rate, data leakage        |
+
+---
+
+# 11. Sprint plan
+
+## Phase 0 — Environment foundation
+
+Goal: make your machine LLM-ready.
+
+Checklist:
+
+```text
+[ ] Install WSL2 Ubuntu
+[ ] Install NVIDIA driver support for WSL
+[ ] Install uv or conda
+[ ] Install PyTorch CUDA build
+[ ] Verify torch.cuda.is_available()
+[ ] Install Transformers, Datasets, Accelerate
+[ ] Install TRL, PEFT, bitsandbytes
+[ ] Install llama.cpp
+[ ] Install vLLM in WSL
+[ ] Configure Hugging Face token
+[ ] Configure W&B or MLflow
+[ ] Create llm-lab repo
+```
+
+Definition of done:
+
+```text
+You can run:
+1. a tiny PyTorch CUDA script
+2. a Hugging Face model inference
+3. a llama.cpp GGUF inference
+4. a vLLM local server
+```
+
+---
+
+## Phase 1 — Tiny LLM from scratch
+
+Goal: understand the machine.
+
+Tasks:
+
+```text
+[ ] Collect small corpus
+[ ] Clean text
+[ ] Train tokenizer
+[ ] Build tiny Transformer
+[ ] Train causal LM
+[ ] Track loss/perplexity
+[ ] Save checkpoints
+[ ] Generate text
+[ ] Write model card
+```
+
+Deliverable:
+
+```text
+tiny-llm-125m/
+  tokenizer
+  checkpoint
+  eval report
+  sample generations
+```
+
+Do not optimize too early. First make the full loop work.
+
+---
+
+## Phase 2 — SFT assistant
+
+Goal: turn a model into instruction follower.
+
+Tasks:
+
+```text
+[ ] Prepare instruction dataset
+[ ] Convert to chat template format
+[ ] Run SFT on 1B–3B model
+[ ] Evaluate 100 manually written prompts
+[ ] Add regression tests
+[ ] Save LoRA adapter
+[ ] Merge adapter
+[ ] Compare base vs SFT model
+```
+
+Deliverable:
+
+```text
+sft-data-engineering-assistant-v1
+```
+
+---
+
+## Phase 3 — QLoRA 7B/8B
+
+Goal: train a useful model locally.
+
+Tasks:
+
+```text
+[ ] Select 7B/8B base model
+[ ] Load in 4-bit
+[ ] Enable gradient checkpointing
+[ ] Use LoRA all-linear modules
+[ ] Train on high-quality dataset
+[ ] Evaluate against base
+[ ] Merge adapter if needed
+[ ] Export safetensors
+```
+
+Deliverable:
+
+```text
+retail-data-llm-7b-qlora-v1
+```
+
+---
+
+## Phase 4 — DPO preference optimization
+
+Goal: make answers sharper and more aligned.
+
+Tasks:
+
+```text
+[ ] Build chosen/rejected dataset
+[ ] Include your preferred answer style
+[ ] Run DPO
+[ ] Compare SFT vs DPO
+[ ] Measure win rate
+[ ] Create failure taxonomy
+```
+
+Preference dataset examples:
+
+```text
+Good: precise SQL diagnosis, exact query, minimal fluff.
+Bad: vague explanation, no query, motivational language.
+```
+
+Deliverable:
+
+```text
+retail-data-llm-7b-dpo-v1
+```
+
+---
+
+## Phase 5 — Verifiable reasoning / GRPO
+
+Goal: train model on tasks where correctness can be checked.
+
+Use your domain:
+
+```text
+SQL generation
+BigQuery debugging
+ETL pipeline diagnosis
+schema mapping
+data reconciliation
+retail metric explanation
+```
+
+Tasks:
+
+```text
+[ ] Create tasks with expected outputs
+[ ] Build execution verifier
+[ ] Reward valid SQL
+[ ] Reward correct row counts/schema
+[ ] Penalize hallucinated columns
+[ ] Run GRPO/RLVR experiment
+```
+
+Deliverable:
+
+```text
+sql-reasoning-llm-grpo-v1
+```
+
+---
+
+## Phase 6 — Quantization and local deployment
+
+Goal: run models efficiently.
+
+Tasks:
+
+```text
+[ ] Merge LoRA adapter into base
+[ ] Convert to GGUF
+[ ] Quantize Q4_K_M
+[ ] Quantize Q5_K_M
+[ ] Quantize Q8_0
+[ ] Benchmark speed/quality
+[ ] Serve through llama.cpp
+[ ] Serve through vLLM
+[ ] Compare latency and quality
+```
+
+Deliverables:
+
+```text
+model.Q4_K_M.gguf
+model.Q5_K_M.gguf
+model.Q8_0.gguf
+vllm-openai-compatible-api
+```
+
+---
+
+## Phase 7 — RAG system
+
+Goal: model uses external knowledge reliably.
+
+Architecture:
+
+```text
+Documents
+  → chunk
+  → embed
+  → vector DB
+  → retrieve
+  → rerank
+  → prompt
+  → generate
+  → cite sources
+  → evaluate faithfulness
+```
+
+Tasks:
+
+```text
+[ ] Add document ingestion
+[ ] Add chunking strategies
+[ ] Add embeddings
+[ ] Add Qdrant/pgvector
+[ ] Add hybrid search
+[ ] Add reranker
+[ ] Add citation mode
+[ ] Add RAG eval
+```
+
+Deliverable:
+
+```text
+domain-rag-assistant
+```
+
+---
+
+## Phase 8 — Production API and observability
+
+Goal: make it real.
+
+Tasks:
+
+```text
+[ ] FastAPI inference gateway
+[ ] vLLM backend
+[ ] llama.cpp backend
+[ ] model router
+[ ] prompt templates
+[ ] streaming responses
+[ ] request logging
+[ ] feedback capture
+[ ] eval dashboard
+[ ] latency dashboard
+[ ] cost dashboard
+[ ] safety filters
+```
+
+Deliverable:
+
+```text
+LLMOps-ready local production system
+```
+
+---
+
+# 12. Your 12-week execution roadmap
+
+## Weeks 1–2: Foundations
+
+```text
+Build repo
+Set up WSL2
+Run local inference
+Train tokenizer
+Train tiny model
+Understand Transformer internals
+```
+
+## Weeks 3–4: SFT
+
+```text
+Prepare instruction data
+Fine-tune 1B–3B model
+Run eval
+Create model card
+Serve locally
+```
+
+## Weeks 5–6: QLoRA 7B
+
+```text
+Fine-tune 7B/8B
+Optimize VRAM
+Compare LoRA ranks
+Benchmark quality
+```
+
+## Weeks 7–8: Alignment
+
+```text
+Build preference data
+Run DPO
+Build reward model prototype
+Run small PPO/GRPO experiment
+```
+
+## Weeks 9–10: Optimization
+
+```text
+Merge adapters
+Quantize GGUF
+Serve with llama.cpp
+Serve with vLLM
+Benchmark latency/quality
+```
+
+## Weeks 11–12: Production LLMOps
+
+```text
+Build API
+Add RAG
+Add eval harness
+Add monitoring
+Add feedback loop
+Create final deployment
+```
+
+---
+
+# 13. The exact learning order
+
+Do not learn randomly. Use this order:
+
+```text
+1. Tokenization
+2. Transformer architecture
+3. Causal language modeling
+4. Dataset quality
+5. SFT
+6. LoRA
+7. QLoRA
+8. Evaluation
+9. DPO
+10. Reward modeling
+11. PPO/RLHF
+12. GRPO/RLVR
+13. Quantization
+14. vLLM
+15. llama.cpp
+16. RAG
+17. LLMOps
+18. Agentic systems
+```
+
+This order prevents the common failure mode: learning tools without understanding the system.
+
+---
+
+# 14. First model you should build
+
+For your actual machine, start here:
+
+```text
+Base model: Qwen/Llama/Gemma/Phi small instruct model
+Method: QLoRA
+Dataset: 500–5,000 high-quality examples
+Domain: data engineering + retail analytics + BigQuery + debugging
+Serving: llama.cpp GGUF + vLLM
+```
+
+Your first useful model should be:
+
+```text
+Merchmix-Retail-Data-Engineer-SLLM
+```
+
+It should specialize in:
+
+```text
+BigQuery SQL
+bronze/silver/gold data pipelines
+retail metrics
+purchase/order/sales/stock logic
+WSSI explanations
+data reconciliation
+Cloud Run debugging
+Postgres/BigQuery comparison
+```
+
+That gives you asymmetric advantage because you already have real domain problems.
+
+---
+
+# 15. High-leverage dataset design
+
+Your dataset should not be generic internet junk. Build from your work.
+
+## SFT examples
+
+```text
+User:
+Here is BigQuery schema and issue. Find why BQ has 7 extra rows.
+
+Assistant:
+1. Diagnosis
+2. Exact SQL checks
+3. Expected interpretation
+4. Fix path
+```
+
+## Preference examples
+
+Chosen answer:
+
+```text
+Gives exact query.
+Mentions possible duplicate keys.
+Explains join grain.
+Gives validation query.
+```
+
+Rejected answer:
+
+```text
+Generic explanation.
+No SQL.
+No grain analysis.
+No validation.
+```
+
+## Verifiable examples
+
+Prompt:
+
+```text
+Generate SQL to find extra inventory IDs in BQ compared to Accumatica.
+```
+
+Reward:
+
+```text
+SQL parses: +1
+Uses EXCEPT DISTINCT: +1
+Handles TRIM/UPPER normalization: +1
+Does not invent columns: +1
+```
+
+This is how you create a model that actually becomes useful.
+
+---
+
+# 16. Model evaluation suite
+
+Create fixed eval files:
+
+```text
+eval/
+  bigquery_debug_100.jsonl
+  sql_generation_100.jsonl
+  retail_metric_reasoning_100.jsonl
+  cloud_run_debug_50.jsonl
+  postgres_bq_reconciliation_50.jsonl
+  safety_privacy_50.jsonl
+```
+
+Each eval item:
+
+```json
+{
+  "id": "bq_extra_inventory_001",
+  "prompt": "...",
+  "expected_traits": [
+    "checks normalized inventory id",
+    "uses anti-join",
+    "does not delete data blindly"
+  ],
+  "must_include": ["EXCEPT DISTINCT", "TRIM", "UPPER"],
+  "must_not_include": ["DROP TABLE"]
+}
+```
+
+Scoring:
+
+```text
+0 = wrong
+1 = partially useful
+2 = correct
+3 = production-grade
+```
+
+Your goal:
+
+```text
+Base model average: 1.2
+SFT model average: 2.2
+DPO model average: 2.6
+GRPO/verifier model average: 2.8+
+```
+
+---
+
+# 17. Folder-level task checklist
+
+## Data
+
+```text
+[ ] raw data ingestion
+[ ] text cleaning
+[ ] deduplication
+[ ] PII filtering
+[ ] quality scoring
+[ ] train/val/test split
+[ ] tokenizer training
+[ ] tokenized dataset creation
+[ ] dataset card
+```
+
+## Training
+
+```text
+[ ] tiny pretraining script
+[ ] SFT script
+[ ] LoRA script
+[ ] QLoRA script
+[ ] DPO script
+[ ] reward model script
+[ ] PPO script
+[ ] GRPO script
+[ ] checkpoint resume
+[ ] logging
+```
+
+## Evaluation
+
+```text
+[ ] perplexity
+[ ] instruction eval
+[ ] SQL eval
+[ ] preference win rate
+[ ] RAG faithfulness
+[ ] hallucination test
+[ ] latency test
+[ ] regression suite
+```
+
+## Optimization
+
+```text
+[ ] merge LoRA
+[ ] export safetensors
+[ ] convert GGUF
+[ ] quantize Q4/Q5/Q8
+[ ] benchmark quantized models
+[ ] pruning experiment
+[ ] distillation experiment
+```
+
+## Serving
+
+```text
+[ ] FastAPI endpoint
+[ ] streaming
+[ ] vLLM backend
+[ ] llama.cpp backend
+[ ] model router
+[ ] prompt templates
+[ ] auth
+[ ] logging
+```
+
+## LLMOps
+
+```text
+[ ] model registry
+[ ] dataset versioning
+[ ] experiment tracking
+[ ] eval gate before deploy
+[ ] canary release
+[ ] feedback collection
+[ ] retraining pipeline
+[ ] dashboard
+```
+
+---
+
+# 18. Recommended first commands
+
+Inside WSL2 Ubuntu:
+
+```bash
+mkdir -p ~/llm-lab
+cd ~/llm-lab
+
+python3 -m venv .venv
+source .venv/bin/activate
+
+pip install --upgrade pip
+pip install torch torchvision torchaudio
+pip install transformers datasets accelerate tokenizers sentencepiece safetensors
+pip install trl peft bitsandbytes wandb mlflow evaluate
+pip install fastapi uvicorn pydantic python-dotenv rich typer
+```
+
+Verify GPU:
+
+```bash
+python - << 'PY'
+import torch
+print("CUDA available:", torch.cuda.is_available())
+print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)
+print("VRAM GB:", torch.cuda.get_device_properties(0).total_memory / 1024**3 if torch.cuda.is_available() else None)
+PY
+```
+
+---
+
+# 19. The architecture decision you should follow
+
+Use this decision tree:
+
+```text
+Need to learn fundamentals?
+  → train tiny LLM from scratch.
+
+Need useful domain model?
+  → QLoRA fine-tune 3B/7B open model.
+
+Need better behavior?
+  → SFT then DPO.
+
+Need reasoning correctness?
+  → verifier-based GRPO/RLVR.
+
+Need laptop deployment?
+  → llama.cpp GGUF Q4_K_M/Q5_K_M.
+
+Need API throughput?
+  → vLLM.
+
+Need NVIDIA production optimization?
+  → TensorRT-LLM.
+
+Need factual domain knowledge?
+  → RAG, not fine-tuning.
+
+Need new behavior/style?
+  → fine-tuning.
+
+Need smaller/faster model?
+  → quantization first, distillation second, pruning later.
+```
+
+---
+
+# 20. Your first sprint
+
+Start with this exact sprint.
+
+## Sprint 1: “Local LLM Factory”
+
+Duration: 7 days.
+
+### Day 1
+
+```text
+[ ] Install WSL2 Ubuntu
+[ ] Set up Python env
+[ ] Verify CUDA
+[ ] Create repo
+```
+
+### Day 2
+
+```text
+[ ] Run inference with one small HF model
+[ ] Run llama.cpp with one GGUF model
+[ ] Run vLLM server
+```
+
+### Day 3
+
+```text
+[ ] Prepare 100–300 domain SFT examples
+[ ] Define JSONL schema
+[ ] Build data validation script
+```
+
+### Day 4
+
+```text
+[ ] Run QLoRA SFT on 1B–3B model
+[ ] Track loss
+[ ] Save adapter
+```
+
+### Day 5
+
+```text
+[ ] Build 50-prompt evaluation set
+[ ] Compare base vs fine-tuned model
+[ ] Write failure report
+```
+
+### Day 6
+
+```text
+[ ] Merge adapter
+[ ] Export model
+[ ] Convert to GGUF
+[ ] Quantize Q4_K_M
+```
+
+### Day 7
+
+```text
+[ ] Serve through FastAPI
+[ ] Add simple chat endpoint
+[ ] Add logging
+[ ] Write model card
+```
+
+Sprint 1 deliverable:
+
+```text
+A locally fine-tuned, quantized, served domain assistant.
+```
+
+That is your foundation. Everything else compounds from there.
+
+[1]: https://huggingface.co/docs/trl/index?utm_source=chatgpt.com "TRL - Transformers Reinforcement Learning · Hugging Face"
+[2]: https://huggingface.co/docs/peft/developer_guides/lora?utm_source=chatgpt.com "LoRA · Hugging Face"
+[3]: https://docs.vllm.ai/en/latest/features/quantization/?utm_source=chatgpt.com "Quantization - vLLM"
+[4]: https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md?utm_source=chatgpt.com "llama.cpp/tools/quantize/README.md at master - GitHub"
+[5]: https://nvidia.github.io/TensorRT-LLM/?utm_source=chatgpt.com "Welcome to TensorRT LLM’s Documentation! — TensorRT LLM"
+[6]: https://github.com/vllm-project/vllm?utm_source=chatgpt.com "GitHub - vllm-project/vllm: A high-throughput and memory-efficient ..."
+[7]: https://arxiv.org/abs/2305.14314?utm_source=chatgpt.com "QLoRA: Efficient Finetuning of Quantized LLMs"
+[8]: https://arxiv.org/abs/2601.14277?utm_source=chatgpt.com "Which Quantization Should I Use? A Unified Evaluation of llama.cpp Quantization on Llama-3.1-8B-Instruct"

@@ -1,0 +1,12 @@
+{
+  "dataset_dir": "data/sft_v2_frozen",
+  "created_at_utc": "2026-06-07T12:36:49.189554+00:00",
+  "commit_hash": "739909c1298db3c24995db25c49085a8b062bc40",
+  "combined_sha256": "811409ed948c25648ad0687ea135b1ac3ec5a5c734712733cd92f06d4ce8fe2b",
+  "files": [
+    {
+      "path": "data/sft_v2_frozen/merchmix_sft_v2.jsonl",
+      "sha256": "7a09216dbcb75c1ca6cb37106bc2fb025d1ccb7f452b988aaeb882750080f579"
+    }
+  ]
+}

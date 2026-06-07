@@ -1,0 +1,273 @@
+Phase 3 Result Assessment
+What you accomplished
+
+You completed the correct model-improvement loop:
+
+SFT dataset
+→ schema validation
+→ tests
+→ PEFT LoRA training
+→ adapter save
+→ adapter evaluation
+→ baseline comparison
+→ Git commit
+
+That exactly matches the project strategy: build a full local LLM pipeline using fine-tuning, evaluation, serving, monitoring, RAG, and agentic deployment rather than trying to train a frontier model from scratch. Your blueprint explicitly says your laptop is strongest for fine-tuning, post-training, quantization, local inference, evaluation, RAG, LLMOps, and small pretraining experiments.
+
+Result
+
+You reported:
+
+Baseline pass rate: 15.4%
+SFT adapter pass rate: 30.8%
+Dataset size: 105 examples
+Training time: ~15 seconds
+Model: Qwen2.5-0.5B-Instruct
+Method: PEFT LoRA SFT
+Converted failures to passes:
+  bq_debug_003
+  sql_gen_002
+
+Since the eval set has 13 samples:
+
+15.4% = 2 / 13 passed
+30.8% = 4 / 13 passed
+
+So the adapter gained:
+
++2 passed samples
++100% relative pass-rate improvement
+
+That is a strong early signal.
+
+2. Important Discrepancy to Fix
+
+Earlier Phase 2 summary said the baseline was:
+
+1 / 13 passed
+7.7% pass rate
+17 / 39 score
+
+Your new summary says the baseline was:
+
+2 / 13 passed
+15.4% pass rate
+
+This is not a problem, but it must be explained before we treat reports as clean science.
+
+Possible causes:
+
+1. You reran the baseline with different generation settings.
+2. The deterministic judge changed.
+3. Eval dataset changed.
+4. Baseline output file path changed.
+5. Random sampling caused one more pass.
+6. You compared against a newer baseline, not the original Phase 2 baseline.
+
+Because the original setup intentionally made the deterministic judge a stable regression gate, baseline drift must be controlled. The project notes say the seed evals were created as a deterministic benchmark and the simple judge exists to provide a stable regression gate for future model changes.
+
+Required sanity check
+
+Run this:
+
+python scripts/compare_eval_runs.py \
+  --baseline reports/eval_reports/original_phase2_baseline_eval.jsonl \
+  --candidate reports/eval_reports/qwen_0_5b_sft_v1_eval.jsonl \
+  --output-md reports/eval_reports/original_baseline_vs_qwen_0_5b_sft_v1.md
+
+Also run:
+
+sha256sum data/eval/*.jsonl
+sha256sum reports/eval_reports/*baseline*.jsonl
+sha256sum reports/eval_reports/*sft*.jsonl
+
+Save those hashes into the report. From now on, every eval report should include:
+
+eval dataset hash
+judge version / commit hash
+model path
+adapter path
+generation config
+random seed
+temperature
+top_p
+max_new_tokens
+commit hash
+
+Without this, the number is directionally useful but not fully reproducible.
+
+3. What This Result Actually Proves
+It proves
+Your local GPU training environment works.
+Your PEFT LoRA path works.
+Your SFT JSONL format is compatible.
+Your adapter can alter model behavior.
+Your eval harness can detect improvement.
+Your repo workflow is now reproducible.
+
+That is a major checkpoint.
+
+It does not yet prove
+The model generalizes.
+The model is production-ready.
+The model understands retail data deeply.
+The model can safely generate SQL beyond seen patterns.
+The model will perform well on unseen schemas.
+The model is better outside the 13-sample benchmark.
+
+Reason: 105 examples and 13 evals are too small. Also, if any eval-like prompts were present in the SFT set, the improvement may be partial memorization.
+
+That is not bad. In early phases, memorization is acceptable because you are validating the machinery. But next phase must separate learning loop validation from generalization validation.
+
+4. Risk Review
+Risk 1 — Eval contamination
+
+If bq_debug_003 or sql_gen_002 are very similar to SFT training examples, then those new passes may reflect memorization.
+
+Run this next:
+
+python scripts/check_sft_eval_overlap.py \
+  --sft data/sft/merchmix_sft_v1.jsonl \
+  --eval-dir data/eval \
+  --output reports/eval_reports/sft_eval_overlap_report.md
+
+Create the script if you don’t have it yet.
+
+from __future__ import annotations
+
+import argparse
+import json
+from difflib import SequenceMatcher
+from pathlib import Path
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    rows = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+
+def get_sft_user_text(row: dict) -> str:
+    return "\n".join(
+        m["content"] for m in row["messages"] if m["role"] == "user"
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sft", type=Path, required=True)
+    parser.add_argument("--eval-dir", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+
+    sft_rows = read_jsonl(args.sft)
+    eval_rows = []
+    for path in sorted(args.eval_dir.glob("*.jsonl")):
+        eval_rows.extend(read_jsonl(path))
+
+    lines = [
+        "# SFT / Eval Overlap Report",
+        "",
+        "| Eval ID | Best SFT ID | Similarity | Risk |",
+        "|---|---|---:|---|",
+    ]
+
+    for eval_row in eval_rows:
+        eval_prompt = eval_row["prompt"]
+        best = None
+
+        for sft_row in sft_rows:
+            sft_prompt = get_sft_user_text(sft_row)
+            ratio = SequenceMatcher(None, eval_prompt, sft_prompt).ratio()
+            if best is None or ratio > best[0]:
+                best = (ratio, sft_row["id"])
+
+        ratio, sft_id = best
+        risk = "HIGH" if ratio >= 0.80 else "MEDIUM" if ratio >= 0.60 else "LOW"
+        lines.append(
+            f"| {eval_row['id']} | {sft_id} | {ratio:.3f} | {risk} |"
+        )
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Wrote {args.output}")
+
+
+if __name__ == "__main__":
+    main()
+
+If overlap is high, keep the result, but label it as:
+
+Phase 3A: pipeline validation result
+
+not:
+
+generalization result
+Risk 2 — Benchmark too small
+
+13 eval samples are useful as a smoke test, but too small for a serious claim. One extra pass changes pass rate by 7.7 percentage points.
+
+Next benchmark target:
+
+50 evals minimum
+100 evals preferred
+
+Distribution:
+
+BigQuery debugging: 25
+SQL generation: 25
+Postgres-BigQuery reconciliation: 15
+Retail metric reasoning: 15
+Pipeline debugging: 10
+Safety/tool-use: 10
+Risk 3 — Generated SFT examples may be too clean
+
+If the 105 examples are mostly idealized/generated, the model may learn clean patterns but fail on messy real user prompts.
+
+You need three example types:
+
+Clean examples: teach ideal pattern
+Messy examples: teach robustness
+Correction examples: teach self-repair
+
+For your domain, messy examples matter more because your real work has incomplete schemas, screenshots, pasted logs, spelling mistakes, partial SQL, and unclear business language.
+
+Risk 4 — 15-second training may underfit or simply style-steer
+
+A 15-second LoRA run on 0.5B can improve format and keywords quickly. That is good. But it may not yet encode deeper reasoning.
+
+Track these next time:
+
+training loss start/end
+tokens/sec
+GPU memory peak
+number of optimizer steps
+effective batch size
+epochs
+adapter size
+LoRA rank
+trainable parameter count
+
+Add these to every training report.
+
+5. My Verdict
+Status
+Phase 3: PASSED
+Quality grade
+Engineering loop: A
+Scientific rigor: B-
+Model capability: C+
+Strategic value: A-
+
+Why:
+
+A for engineering loop because you built and executed the full SFT path.
+B- for rigor because the baseline discrepancy must be reconciled.
+C+ for model capability because 30.8% on 13 examples is early, not robust.
+A- strategic value because the improvement proves the right compounding direction.
+
+This is exactly how frontier engineering compounds: small controlled loop first, then scale.
