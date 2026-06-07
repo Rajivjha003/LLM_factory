@@ -476,3 +476,31 @@ mkdir -p ~/datasets/raw ~/datasets/processed ~/datasets/eval
 ```
 
 This is the stable setup we learned from the errors.
+
+---
+
+# K. Troubleshooting: vLLM flashinfer JIT Compilation Errors
+
+If you encounter C++ compilation errors when starting `vLLM` (e.g., `has no member "FlagHeads"` or `#error "CUDA compiler and CUDA toolkit headers are incompatible"`), it means the system's `nvcc` version (e.g., CUDA 13.x) is mismatched with PyTorch's bundled headers (CUDA 12.x). 
+
+`flashinfer` has a strict compatibility check that causes the JIT-compilation to crash. You can bypass this by patching the `cuda_toolkit.h` file directly in your `.venv` and clearing the cache:
+
+1. **Open the `cuda_toolkit.h` file:**
+   ```bash
+   nano ~/LLM_Ops_vllm/.venv/lib/python3.11/site-packages/flashinfer/data/cccl/libcudacxx/include/cuda/std/__cccl/cuda_toolkit.h
+   ```
+2. **Find this block (around line 41) and comment out the `#error` line:**
+   ```cpp
+   #ifndef CCCL_DISABLE_CTK_COMPATIBILITY_CHECK
+   #  if _CCCL_CUDA_COMPILATION()
+   #    if !_CCCL_CUDACC_EQUAL((CUDART_VERSION / 1000), (CUDART_VERSION % 1000) / 10)
+   // #      error "CUDA compiler and CUDA toolkit headers are incompatible, please check your include paths"
+   #    endif // !_CCCL_CUDACC_EQUAL((CUDART_VERSION / 1000), (CUDART_VERSION % 1000) / 10)
+   #  endif // _CCCL_CUDA_COMPILATION()
+   #endif // CCCL_DISABLE_CTK_COMPATIBILITY_CHECK
+   ```
+3. **Clear the build cache:**
+   ```bash
+   rm -rf ~/.cache/*
+   ```
+4. **Restart vLLM.** It will recompile the JIT kernels successfully using the bypassed headers.
