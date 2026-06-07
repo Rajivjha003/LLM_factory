@@ -99,3 +99,7 @@ memory/cache/*
 # Keep curated eval datasets versioned
 !data/eval/
 !data/eval/*.jsonl
+
+# Keep curated sft datasets versioned
+!data/sft/
+!data/sft/*.jsonl
