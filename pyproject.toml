@@ -1,0 +1,66 @@
+[project]
+name = "llm-ops"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "accelerate>=1.13.0",
+    "datasets>=2.14.4",
+    "numpy>=2.4.4",
+    "pandas>=2.2,<3",
+    "pyarrow<21",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "safetensors>=0.7.0",
+    "scikit-learn>=1.9.0",
+    "scipy>=1.17.1",
+    "sentencepiece>=0.2.1",
+    "tokenizers>=0.22.2",
+    "torch>=2.12.0",
+    "torchaudio>=2.11.0",
+    "torchvision>=0.27.0",
+    "tqdm>=4.66.5",
+    "transformers>=4.57.6",
+    "typer>=0.26.7",
+]
+
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+
+[dependency-groups]
+serve = [
+    "fastapi>=0.136.3",
+    "openai>=2.41.0",
+    "opentelemetry-api>=1.42.1",
+    "opentelemetry-sdk>=1.42.1",
+    "prometheus-client>=0.25.0",
+    "sse-starlette>=3.4.4",
+    "uvicorn>=0.49.0",
+]
+train = [
+    "bitsandbytes>=0.49.2",
+    "deepspeed>=0.19.1",
+    "einops>=0.8.2",
+    "evaluate>=0.4.6",
+    "mlflow>=3.5,<4",
+    "peft>=0.19.1",
+    "trl>=0.10.1",
+    "wandb>=0.27.2",
+]
+
+
+[tool.uv]
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
