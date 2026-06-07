@@ -14,29 +14,22 @@ def load_eval_data(path: Path):
     with open(path, "r") as f:
         return [json.loads(line) for line in f if line.strip()]
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--base-model", type=str, default="/home/rajiv/models/base/qwen2_5_0_5b_instruct")
-    parser.add_argument("--adapter", type=str, default="models/adapters/qwen_0_5b_merchmix_v1")
-    parser.add_argument("--eval-dir", type=str, default="data/eval")
-    parser.add_argument("--output-jsonl", type=str, default="reports/eval_reports/qwen_0_5b_adapter_results.jsonl")
-    args = parser.parse_args()
-
+def run_evaluation(base_model: str, adapter: str, eval_dir: str, output_jsonl: str) -> None:
     print("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
 
     print("Loading base model...")
     model = AutoModelForCausalLM.from_pretrained(
-        args.base_model,
+        base_model,
         device_map="auto",
         torch_dtype=torch.float16,
         trust_remote_code=True,
     )
 
     print("Loading adapter...")
-    model = PeftModel.from_pretrained(model, args.adapter)
+    model = PeftModel.from_pretrained(model, adapter)
 
-    eval_files = list(Path(args.eval_dir).glob("*.jsonl"))
+    eval_files = list(Path(eval_dir).glob("*.jsonl"))
     print(f"Found {len(eval_files)} eval files")
 
     judge = SimpleJudge()
@@ -82,12 +75,22 @@ def main():
                 "max_score": item.get("max_score", 3)
             })
 
-    Path(args.output_jsonl).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output_jsonl, "w") as f:
+    Path(output_jsonl).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_jsonl, "w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
 
-    print(f"Saved {len(results)} eval results to {args.output_jsonl}")
+    print(f"Saved {len(results)} eval results to {output_jsonl}")
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-model", type=str, default="/home/rajiv/models/base/qwen2_5_0_5b_instruct")
+    parser.add_argument("--adapter", type=str, default="models/adapters/qwen_0_5b_merchmix_v1")
+    parser.add_argument("--eval-dir", type=str, default="data/eval")
+    parser.add_argument("--output-jsonl", type=str, default="reports/eval_reports/qwen_0_5b_adapter_results.jsonl")
+    args = parser.parse_args()
+
+    run_evaluation(args.base_model, args.adapter, args.eval_dir, args.output_jsonl)
 
 if __name__ == "__main__":
     main()

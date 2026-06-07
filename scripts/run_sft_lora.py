@@ -12,12 +12,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from peft import LoraConfig, get_peft_model
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/training/sft_qwen_0_5b_lora.yaml")
-    args = parser.parse_args()
-
-    with open(args.config) as f:
+def run_lora_training(config_path: str) -> None:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     print(f"Loading tokenizer from {config['model_name_or_path']}")
@@ -90,6 +86,13 @@ def main():
     print(f"Saving adapter to {config['output_dir']}")
     trainer.save_model(config["output_dir"])
     tokenizer.save_pretrained(config["output_dir"])
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="configs/training/sft_qwen_0_5b_lora.yaml")
+    args = parser.parse_args()
+
+    run_lora_training(args.config)
 
 if __name__ == "__main__":
     main()

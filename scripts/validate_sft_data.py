@@ -37,11 +37,11 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def validate_file(path: Path) -> None:
+def validate_sft_file(path: Path) -> tuple[int, list[str]]:
     rows = load_jsonl(path)
 
     if not rows:
-        raise ValueError(f"No samples found in {path}")
+        return 0, [f"No samples found in {path}"]
 
     seen_ids: set[str] = set()
     errors: list[str] = []
@@ -69,11 +69,14 @@ def validate_file(path: Path) -> None:
                     f"Line {idx}: forbidden destructive SQL term found: {term}"
                 )
 
+    return len(rows), errors
+
+def validate_file(path: Path) -> None:
+    valid_count, errors = validate_sft_file(path)
     if errors:
         print("\n".join(errors))
         raise SystemExit(1)
-
-    print(f"PASS: {len(rows)} SFT samples validated from {path}")
+    print(f"PASS: {valid_count} SFT samples validated from {path}")
 
 
 def main() -> None:
