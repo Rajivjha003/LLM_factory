@@ -1,0 +1,34 @@
+{
+  "run_name": "qwen_3b_qlora_v1_from_sft_v3",
+  "phase": "Phase 5 - Qwen 3B QLoRA Scaling & Model Selection",
+  "base_model": "Qwen/Qwen2.5-3B-Instruct",
+  "adapter": "artifacts/adapters/qwen_3b_qlora_v1_from_sft_v3",
+  "eval_file": "data/eval/eval_v3.jsonl",
+  "judge": {
+    "name": "judge_v2_phase5",
+    "pass_threshold": 0.8,
+    "destructive_sql_terms": [
+      "DROP TABLE",
+      "DELETE FROM",
+      "TRUNCATE",
+      "ALTER TABLE"
+    ]
+  },
+  "generation": {
+    "max_new_tokens": 768,
+    "do_sample": false,
+    "temperature": null,
+    "top_p": null,
+    "repetition_penalty": 1.05
+  },
+  "num_samples": 50,
+  "pass_count": 1,
+  "pass_rate": 0.02,
+  "score_rate": 0.3644,
+  "elapsed_seconds": 319.49,
+  "champion": {
+    "name": "qwen_1_5b_sft_v2_eval_v3",
+    "pass_rate": 0.34,
+    "score_rate": 0.927
+  }
+}

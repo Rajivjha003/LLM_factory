@@ -1,0 +1,11 @@
+{
+  "total": 50,
+  "passed": 12,
+  "pass_rate": 0.24,
+  "total_score": 783.9000000000001,
+  "max_score": 850.0,
+  "score_rate": 0.9222352941176472,
+  "errors": [],
+  "warnings": [],
+  "audit_passed": true
+}

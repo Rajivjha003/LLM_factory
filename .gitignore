@@ -66,6 +66,7 @@ ENV/
 .DS_Store
 .vscode/
 .idea/
+*Zone.Identifier
 
 # Secrets
 *.key
@@ -78,7 +79,7 @@ data/interim/*
 data/processed/*
 data/tokenized/*
 data/sft/*
-data/preference/*
+data/preferences/*
 data/eval/*
 artifacts/*
 logs/*
@@ -103,4 +104,23 @@ memory/cache/*
 # Keep curated sft datasets versioned
 !data/sft/
 !data/sft/*.jsonl
+
+# Keep curated preference datasets versioned
+!data/preferences/
+!data/preferences/*.jsonl
+
 models/
+
+# Scratch and temporary text files
+next_phase*.txt
+pre_phase_fix.txt
+phase*_complete_package.txt
+phase*_packaging_quantization_package.txt
+
+# Ad-hoc extraction and generation scripts
+add_real_world.py
+auto_curate_dpo.py
+auto_label.py
+debug_jsonl.py
+extract_*.py
+parse_package.py

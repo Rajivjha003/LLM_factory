@@ -1,0 +1,14 @@
+{
+  "base_pass_rate": 0.24,
+  "base_score_rate": 0.9222352941176472,
+  "pass_rate_ci_95": [
+    0.12,
+    0.36
+  ],
+  "score_rate_ci_95": [
+    0.9052926470588235,
+    0.9382941176470587
+  ],
+  "bootstrap_samples": 5000,
+  "seed": 42
+}

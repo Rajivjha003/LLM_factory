@@ -1,0 +1,26 @@
+{
+  "champion": {
+    "path": "reports/eval_reports/qwen_1_5b_sft_v2_eval_v3_judge_v3.jsonl",
+    "total": 50,
+    "v2_pass": 17,
+    "v3_pass": 44,
+    "sql_pass": 44,
+    "hr_needed": 29
+  },
+  "candidate": {
+    "path": "reports/eval_reports/qwen_1_5b_dpo_v2_eval_v3_judge_v3.jsonl",
+    "total": 50,
+    "v2_pass": 16,
+    "v3_pass": 44,
+    "sql_pass": 44,
+    "hr_needed": 30
+  },
+  "candidate_name": "qwen_1_5b_dpo_v2_human",
+  "decision": "REJECT",
+  "promotion": false,
+  "rules": {
+    "must_beat_v3_or_sql": true,
+    "must_not_regress_sql": true,
+    "hr_needed_tolerance": 3
+  }
+}

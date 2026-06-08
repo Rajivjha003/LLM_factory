@@ -1,0 +1,43 @@
+run_name: qwen_1_5b_dpo_v1
+
+model:
+  base_model_path: artifacts/merged/qwen_1_5b_sft_v2_merged
+  trust_remote_code: true
+
+data:
+  preference_file: data/preferences/merchmix_dpo_v1.jsonl
+  max_length: 2048
+  max_prompt_length: 768
+
+output:
+  output_dir: artifacts/adapters/qwen_1_5b_dpo_v1
+  report_dir: reports/training_runs/qwen_1_5b_dpo_v1
+
+training:
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.00005
+  warmup_ratio: 0.10
+  weight_decay: 0.0
+  logging_steps: 5
+  save_steps: 25
+  bf16: true
+  fp16: false
+  gradient_checkpointing: true
+  max_grad_norm: 0.3
+  seed: 42
+  beta: 0.1
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

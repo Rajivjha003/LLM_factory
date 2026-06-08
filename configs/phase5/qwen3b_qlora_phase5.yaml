@@ -1,0 +1,80 @@
+phase_name: "Phase 5 - Qwen 3B QLoRA Scaling & Model Selection"
+run_name: "qwen_3b_qlora_v1_from_sft_v3"
+seed: 42
+
+model:
+  base_model_id: "Qwen/Qwen2.5-3B-Instruct"
+  local_base_dir: "/home/rajiv/models/base/qwen2_5_3b_instruct"
+  trust_remote_code: true
+
+paths:
+  train_jsonl: "data/sft/merchmix_sft_v3.jsonl"
+  eval_jsonl: "data/eval/eval_v3.jsonl"
+  output_adapter_dir: "artifacts/adapters/qwen_3b_qlora_v1_from_sft_v3"
+  reports_dir: "reports/eval_reports"
+  truth_audit_dir: "reports/truth_audit"
+  taxonomy_dir: "reports/failure_taxonomy"
+  matrix_dir: "reports/model_matrix"
+  registry_dir: "reports/model_registry"
+
+training:
+  max_seq_length: 2048
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0002
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+  logging_steps: 5
+  save_strategy: "epoch"
+  save_total_limit: 2
+  bf16: true
+  fp16: false
+  gradient_checkpointing: true
+  optim: "paged_adamw_8bit"
+  max_grad_norm: 0.3
+  report_to: "none"
+
+qlora:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_use_double_quant: true
+  lora_r: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+generation:
+  max_new_tokens: 768
+  do_sample: false
+  temperature: null
+  top_p: null
+  repetition_penalty: 1.05
+
+judge:
+  name: "judge_v2_phase5"
+  pass_threshold: 0.80
+  destructive_sql_terms:
+    - "DROP TABLE"
+    - "DELETE FROM"
+    - "TRUNCATE"
+    - "ALTER TABLE"
+
+champion:
+  name: "qwen_1_5b_sft_v2_eval_v3"
+  pass_rate: 0.34
+  score_rate: 0.927
+
+promotion_rules:
+  minimum_candidate_pass_rate: 0.38
+  strong_promotion_pass_rate: 0.45
+  excellent_pass_rate: 0.55

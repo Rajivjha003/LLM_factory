@@ -1,0 +1,3 @@
+{"id":"sample_001","model":"qwen_1_5b_sft_v2","human_correct":"yes","judge_agree":"yes","primary_issue":"correct","notes":"Answer is safe and complete."}
+{"id":"sample_002","model":"qwen_1_5b_sft_v4b","human_correct":"partial","judge_agree":"no","primary_issue":"missing_required_keyword_only","notes":"Semantically OK but missed exact required term."}
+{"id":"sample_003","model":"qwen_3b_qlora_v1","human_correct":"no","judge_agree":"yes","primary_issue":"too_generic","notes":"Response did not provide actionable SQL."}

@@ -1,0 +1,14 @@
+{
+  "run_name": "qwen_3b_qlora_v1_from_sft_v3",
+  "jsonl_path": "reports/eval_reports/qwen_3b_qlora_v1_from_sft_v3_eval_v3_judge_v2.jsonl",
+  "metadata_path": "reports/eval_reports/qwen_3b_qlora_v1_from_sft_v3_eval_v3_judge_v2.metadata.json",
+  "num_rows": 50,
+  "pass_count_recomputed": 1,
+  "pass_rate_recomputed": 0.02,
+  "score_rate_recomputed": 0.3644,
+  "metadata_pass_count": 1,
+  "metadata_pass_rate": 0.02,
+  "metadata_score_rate": 0.3644,
+  "passed_audit": true,
+  "errors": []
+}

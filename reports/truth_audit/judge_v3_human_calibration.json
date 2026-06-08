@@ -1,0 +1,13 @@
+{
+  "total_labeled": 25,
+  "judge_agree_total": 25,
+  "judge_agree_yes": 25,
+  "judge_agreement_rate": 1.0,
+  "human_correct_counts": {
+    "yes": 25
+  },
+  "primary_issue_counts": {
+    "correct": 25
+  },
+  "recommendation": "judge_v3_ready"
+}

@@ -1,0 +1,35 @@
+{
+  "model": "artifacts/merged/qwen_1_5b_sft_v2_merged",
+  "max_new_tokens": 256,
+  "runs": [
+    {
+      "prompt": "Give SQL to find duplicate normalized inventory IDs in BigQuery. Include interpretation.",
+      "generated_tokens": 168,
+      "elapsed_seconds": 6.440304482995998,
+      "tokens_per_second": 26.085723189573052,
+      "response": "Here is the standard read-only approach:\n\n```sql\nSELECT UPPER(TRIM(CAST(`Inventory ID` AS STRING))) AS inventory_id_norm, COUNT(*) as cnt\nFROM `project.dataset.table_name`\nGROUP BY inventory_id_norm\nHAVING COUNT(*) > 1\nORDER BY cnt DESC;\n```\n\nInterpretation:\n- This returns only duplicated keys.\n- Use `TRIM`, `UPPER` to ignore case and blank `Inventory ID`.\n- If this returns no rows, the table has no duplicate inventory IDs under these normalization rules.\n- If this returns many rows, those are the likely candidates for actual duplicates.\n\nNext checks:\n1. Check if any key is NULL or blank.\n2. Compare against distinct business-key-safe values.\n3. Create left join deduplication before dropping large amounts of valid records."
+    },
+    {
+      "prompt": "Postgres has fewer rows than BigQuery for purchase order items. Give a safe reconciliation plan.",
+      "generated_tokens": 235,
+      "elapsed_seconds": 8.021092964001582,
+      "tokens_per_second": 29.29775294397818,
+      "response": "The straightforward approach will multiply the risk of duplicating keys by an order of magnitude. The correct way to handle this is to treat it as a join optimization problem first, not as a simple volume comparison problem.\n\nSafe sequence:\n\n1. Identify the key columns: `inventory_id`, `purchase_order_id`.\n2. Find keys present in one source and missing from the other.\n3. Calculate row counts before and after deduplication.\n4. Create a small test table if transformation is needed.\n5. Compare row counts and distinct business keys.\n6. Take only those records where count(*) > count(DISTINCT normalized_key).\n\nExample Postgres query:\n\n```sql\nSELECT\n  COUNT(*) AS total_rows,\n  COUNT(DISTINCT UPPER(TRIM(CAST(`Inventory ID` AS STRING)))) AS distinct_inventory_ids,\n  COUNTIF(`Inventory ID` IS NULL) AS null_inventory_ids,\n  COUNTIF(TRIM(CAST(`Inventory ID` AS STRING)) = '') AS blank_inventory_ids\nFROM `project.dataset.style`;\n```\n\nThis gives evidence without deleting anything until you classify whether the extra records are valid new records, inactive records, or sync artifacts."
+    },
+    {
+      "prompt": "Explain why CSOH retail value changes when valuation moves from unit cost to default price.",
+      "generated_tokens": 58,
+      "elapsed_seconds": 1.892652957001701,
+      "tokens_per_second": 30.644815144495542,
+      "response": "CSOH (Cost of Sales by Historical Stock) normalizes cost against inventory volume. When pricing logic changes, old stock may be weighted more heavily because it matches the new base currency or maturity group. This skews the CSOH metric upward until normalized units match actual sales volume."
+    },
+    {
+      "prompt": "A Cloud Scheduler job succeeded but downstream table did not refresh. What should I check?",
+      "generated_tokens": 30,
+      "elapsed_seconds": 1.1170066010017763,
+      "tokens_per_second": 26.85749571497142,
+      "response": "Check the source table for new rows. The Cloud Scheduler trigger fired, but the downstream table did not refresh. You must inspect the source reality."
+    }
+  ],
+  "avg_tokens_per_second": 28.221446748254547
+}

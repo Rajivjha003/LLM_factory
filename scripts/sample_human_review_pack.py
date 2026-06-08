@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import json
 import random
@@ -8,88 +6,73 @@ from pathlib import Path
 
 def read_jsonl(path: Path) -> list[dict]:
     rows = []
-
     with path.open("r", encoding="utf-8") as file:
         for line in file:
             line = line.strip()
             if line:
                 rows.append(json.loads(line))
-
     return rows
+
+
+def sample_from_file(path: Path, count: int, seed: int) -> list[dict]:
+    rows = read_jsonl(path)
+    random.seed(seed)
+    # Prefer sampling near-pass or interesting failures, but just uniform random is fine
+    # if we want unbiased estimates.
+    if len(rows) <= count:
+        return rows
+    return random.sample(rows, count)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--eval-jsonl", type=Path, required=True)
+    parser.add_argument("--sft-v2-jsonl", type=Path, required=True)
+    parser.add_argument("--sft-v4b-jsonl", type=Path, required=True)
+    parser.add_argument("--qwen-3b-jsonl", type=Path, required=True)
     parser.add_argument("--output-md", type=Path, required=True)
     parser.add_argument("--sample-size", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    rows = read_jsonl(args.eval_jsonl)
-    random.seed(args.seed)
-
-    failed = [row for row in rows if not row.get("passed", False)]
-    passed = [row for row in rows if row.get("passed", False)]
-
-    selected = []
-
-    selected.extend(random.sample(passed, min(len(passed), args.sample_size // 2)))
-    selected.extend(random.sample(failed, min(len(failed), args.sample_size - len(selected))))
+    v2_samples = sample_from_file(args.sft_v2_jsonl, args.sample_size, args.seed)
+    v4b_samples = sample_from_file(args.sft_v4b_jsonl, args.sample_size, args.seed)
+    q3b_samples = sample_from_file(args.qwen_3b_jsonl, args.sample_size, args.seed)
 
     lines = [
-        "# Human Review Pack",
+        "# Phase 5C: Human Review Pack",
         "",
-        f"Eval file: `{args.eval_jsonl}`",
-        f"Sample size: {len(selected)}",
-        "",
-        "For each sample, manually fill:",
-        "",
-        "```text",
-        "human_correct: yes/no",
-        "human_notes: ...",
-        "judge_agree: yes/no",
-        "```",
-        "",
+        "Please manually inspect these samples and label them. Search for `[ ] human_correct:`.",
+        ""
     ]
 
-    for idx, row in enumerate(selected, start=1):
-        lines.extend(
-            [
-                f"## Review {idx}: {row.get('id')}",
-                "",
-                f"- Domain: {row.get('domain')}",
-                f"- Judge passed: {row.get('passed')}",
-                f"- Judge score: {row.get('total_score')}/{row.get('max_score')}",
-                f"- Judge feedback: {row.get('feedback', [])}",
-                "",
-                "### Prompt",
-                "",
-                "```text",
-                row.get("prompt", ""),
-                "```",
-                "",
-                "### Response",
-                "",
-                "```text",
-                row.get("response", ""),
-                "```",
-                "",
-                "### Manual Review",
-                "",
-                "```text",
-                "human_correct:",
-                "human_notes:",
-                "judge_agree:",
-                "```",
-                "",
-            ]
-        )
+    def add_samples(title, samples):
+        lines.append(f"## {title}")
+        for idx, row in enumerate(samples, start=1):
+            lines.append(f"### {idx}. ID: {row.get('id')} (Score Rate: {row.get('score_rate', 0.0):.2f})")
+            lines.append(f"**Passed:** {row.get('passed', False)}")
+            lines.append(f"**Missing Required:** `{row.get('missing_required', [])}`")
+            lines.append(f"**Feedback:** {row.get('feedback', [])}")
+            lines.append("")
+            lines.append("**Model Response:**")
+            lines.append("```text")
+            lines.append(row.get("response", "").strip())
+            lines.append("```")
+            lines.append("")
+            lines.append("- [ ] `human_correct`: yes / no / partial")
+            lines.append("- [ ] `judge_agree`: yes / no")
+            lines.append("- `reason`: ")
+            lines.append("---")
+            lines.append("")
+
+    add_samples("Qwen 1.5B SFT v2 (Champion)", v2_samples)
+    add_samples("Qwen 1.5B SFT v4b", v4b_samples)
+    add_samples("Qwen 3B QLoRA v1", q3b_samples)
 
     args.output_md.parent.mkdir(parents=True, exist_ok=True)
     args.output_md.write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"Wrote {args.output_md}")
+    print(f"Generated human review pack with {len(v2_samples) + len(v4b_samples) + len(q3b_samples)} samples.")
+    print(f"Wrote to {args.output_md}")
 
 
 if __name__ == "__main__":

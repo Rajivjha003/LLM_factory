@@ -1,0 +1,23 @@
+champion:
+  base_model: /home/rajiv/models/base/qwen2_5_1_5b_instruct
+  adapter: artifacts/adapters/qwen_1_5b_sft_v2_failure_driven
+  merged_model: artifacts/merged/qwen_1_5b_sft_v2_merged
+  eval_dir: data/eval_v3
+
+outputs:
+  model_card: reports/model_registry/qwen_1_5b_sft_v2_champion_model_card.md
+  package_manifest: reports/model_registry/qwen_1_5b_sft_v2_package_manifest.json
+  merged_eval_jsonl: reports/eval_reports/qwen_1_5b_sft_v2_merged_eval_v3_judge_v3.jsonl
+  merged_eval_md: reports/eval_reports/qwen_1_5b_sft_v2_merged_eval_v3_judge_v3.md
+  merged_eval_metadata: reports/eval_reports/qwen_1_5b_sft_v2_merged_eval_v3_judge_v3.metadata.json
+  hf_benchmark_json: reports/benchmarks/qwen_1_5b_sft_v2_hf_benchmark.json
+  quant_benchmark_md: reports/benchmarks/qwen_1_5b_sft_v2_quantized_benchmark.md
+
+llama_cpp:
+  repo_dir: /home/rajiv/tools/llama.cpp
+  gguf_dir: models/gguf
+  base_gguf: models/gguf/qwen_1_5b_sft_v2_merged.F16.gguf
+  q8_0: models/gguf/qwen_1_5b_sft_v2_merged.Q8_0.gguf
+  q5_k_m: models/gguf/qwen_1_5b_sft_v2_merged.Q5_K_M.gguf
+  q4_k_m: models/gguf/qwen_1_5b_sft_v2_merged.Q4_K_M.gguf
+
