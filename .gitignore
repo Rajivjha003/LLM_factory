@@ -113,7 +113,6 @@ models/
 
 # Scratch and temporary text files
 next_phase*.txt
-pre_phase_fix.txt
 phase*_complete_package.txt
 phase*_packaging_quantization_package.txt
 
