@@ -1,4 +1,7 @@
 import jsonlines
+import os
+import json
+from pathlib import Path
 from typing import Dict, Any
 from src.llm_ops.core.schemas import FailureRecord
 from src.llm_ops.core.config import settings
@@ -11,9 +14,14 @@ def log_failure(record: FailureRecord):
         return
         
     path = settings.learning_loop.failure_inbox_path
+    
     try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Verify schema dumping
+        data = json.loads(record.model_dump_json())
+        
         with jsonlines.open(path, mode='a') as writer:
-            writer.write(record.model_dump())
-        logger.info(f"Failure record saved to {path}")
+            writer.write(data)
+        logger.info(f"Failure record saved to {path} (trace_id: {record.trace_id}, type: {record.failure_type})")
     except Exception as e:
         logger.error(f"Failed to write failure record: {e}")
