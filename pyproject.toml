@@ -103,5 +103,10 @@ train = [
 
 [tool.uv]
 environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests requiring external services such as Qdrant or embedding models",
+    "gpu: tests requiring CUDA/GPU",
 ]

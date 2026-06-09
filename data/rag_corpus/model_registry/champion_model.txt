@@ -1,0 +1,1 @@
+The current champion model is Qwen 1.5B SFT v2. It is typically quantized to Q8_0 or Q5_K_M GGUF format for local deployment.

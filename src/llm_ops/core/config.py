@@ -26,6 +26,13 @@ class ModelSettings(BaseSettings):
     llm_context_window: int = 8192
     llm_timeout_seconds: int = 120
 
+class EmbeddingSettings(BaseSettings):
+    embedding_provider: str = "huggingface"
+    embedding_model: str = "BAAI/bge-base-en-v1.5"
+    embedding_device: str = "cuda"
+    embedding_batch_size: int = 32
+    embedding_allow_cpu_fallback: bool = True
+
 class RAGSettings(BaseSettings):
     rag_mode: str = "hybrid"
     rag_top_k_dense: int = 20
@@ -38,6 +45,21 @@ class RAGSettings(BaseSettings):
     rag_enable_query_rewrite: bool = True
     rag_enable_context_compression: bool = True
     rag_corpus_dir: str = "data/rag_corpus"
+    rag_max_file_size_mb: int = 5
+    rag_ingest_manifest: str = "data/processed/ingest_manifest.json"
+
+    sparse_retrieval_enabled: bool = True
+    bm25_index_path: str = "data/processed/bm25_index.pkl"
+    bm25_manifest_path: str = "data/processed/bm25_manifest.json"
+    bm25_top_k: int = 20
+
+    fusion_method: str = "RRF"
+    rrf_k: int = 60
+
+    retrieval_eval_dataset: str = "data/eval/retrieval_eval_v1.jsonl"
+    retrieval_report_dir: str = "reports/rag"
+    min_retrieval_recall_at_5: float = 0.85
+    min_retrieval_precision_at_5: float = 0.70
 
 class QdrantSettings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
@@ -67,7 +89,22 @@ class LangfuseSettings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = "http://localhost:3000"
     langfuse_environment: str = "local"
-    langfuse_release: str = "phase8-rag-v1"
+    pinecone_environment: str = "gcp-starter"
+
+class RerankerSettings(BaseSettings):
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_device: str = "cuda"
+    reranker_top_n: int = 8
+    reranker_batch_size: int = 16
+    reranker_allow_cpu_fallback: bool = True
+
+class GuardrailsSettings(BaseSettings):
+    guardrails_enabled: bool = True
+    block_unsafe_sql: bool = True
+    block_prompt_injection: bool = True
+    require_citations_for_facts: bool = True
+    allow_missing_citations_if_low_confidence: bool = False
 
 class GuardrailSettings(BaseSettings):
     guardrails_enabled: bool = True
@@ -133,15 +170,18 @@ class Settings(BaseSettings):
 
     app: AppSettings = Field(default_factory=AppSettings)
     model: ModelSettings = Field(default_factory=ModelSettings)
+    embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     rag: RAGSettings = Field(default_factory=RAGSettings)
     qdrant: QdrantSettings = Field(default_factory=QdrantSettings)
     pinecone: PineconeSettings = Field(default_factory=PineconeSettings)
-    langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
+    reranker: RerankerSettings = Field(default_factory=RerankerSettings)
+    guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)
     guardrail: GuardrailSettings = Field(default_factory=GuardrailSettings)
     self_eval: SelfEvalSettings = Field(default_factory=SelfEvalSettings)
     harness: HarnessSettings = Field(default_factory=HarnessSettings)
     learning_loop: LearningLoopSettings = Field(default_factory=LearningLoopSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     mcp: MCPSettings = Field(default_factory=MCPSettings)
     bigquery: BigQuerySettings = Field(default_factory=BigQuerySettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)

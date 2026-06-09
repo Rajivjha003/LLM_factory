@@ -1,0 +1,1 @@
+The SQL verifier blocks dangerous destructive commands such as DROP, DELETE, TRUNCATE, and ALTER.

@@ -1,0 +1,1 @@
+Phase 8A walkthrough: The basic safety gates are executable and proven. Agents disabled by default. The failure inbox uses jsonl format to capture failed traces with trace ID. Next phase after Phase 8A is Phase 8B.

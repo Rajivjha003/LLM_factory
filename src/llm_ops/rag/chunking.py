@@ -23,8 +23,14 @@ class ChunkingPolicy:
         content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
         _, ext = os.path.splitext(source_path)
         
+        # Deterministic IDs
+        relative_path = os.path.relpath(source_path)
+        doc_id = hashlib.sha256(relative_path.encode('utf-8')).hexdigest()
+        chunk_id_material = f"{relative_path}_{chunk_index}_{content_hash}"
+        chunk_id = hashlib.sha256(chunk_id_material.encode('utf-8')).hexdigest()
+        
         return ChunkMetadata(
-            doc_id=hashlib.md5(source_path.encode('utf-8')).hexdigest(),
+            doc_id=doc_id,
             source_path=source_path,
             source_type=ext if ext else "unknown",
             domain="general",
@@ -32,7 +38,7 @@ class ChunkingPolicy:
             phase=settings.app.app_env,
             created_at=datetime.datetime.utcnow().isoformat(),
             updated_at=datetime.datetime.utcnow().isoformat(),
-            chunk_id=str(uuid.uuid4()),
+            chunk_id=chunk_id,
             chunk_index=chunk_index,
             hash=content_hash,
             tags=[]

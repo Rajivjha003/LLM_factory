@@ -1,0 +1,3 @@
+{"id": "champion_model", "query": "What is the current champion model?", "must_contain": ["Qwen", "1.5B", "SFT v2"], "expected_sources": ["champion_model.txt"], "top_k": 5}
+{"id": "phase8_status", "query": "What is the status of Phase 8 agents?", "must_contain": ["Agents disabled"], "expected_sources": ["walkthrough.md"], "top_k": 5}
+{"id": "sql_verifier", "query": "What does the SQL verifier block?", "must_contain": ["DROP", "DELETE", "TRUNCATE", "ALTER"], "expected_sources": ["sql_verifier.txt"], "top_k": 5}

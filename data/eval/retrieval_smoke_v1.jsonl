@@ -1,0 +1,4 @@
+{"query":"What is the current champion model?","must_contain":["Qwen","1.5B","SFT v2"],"top_k":5}
+{"query":"Why are agents disabled by default?","must_contain":["agents","disabled","default"],"top_k":5}
+{"query":"What does the SQL verifier block?","must_contain":["DROP","DELETE","TRUNCATE"],"top_k":5}
+{"query":"What is the failure inbox for?","must_contain":["failure","jsonl","trace"],"top_k":5}

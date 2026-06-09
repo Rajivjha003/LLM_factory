@@ -1,36 +1,12 @@
-class LLMOpsError(Exception):
-    """Base exception for all llm_ops errors."""
-    pass
-
-class ConfigError(LLMOpsError):
-    pass
-
-class ModelLoadError(LLMOpsError):
-    pass
-
-class RetrievalError(LLMOpsError):
-    pass
-
-class RerankerError(LLMOpsError):
-    pass
-
-class RAGAnswerError(LLMOpsError):
-    pass
-
-class GuardrailViolation(LLMOpsError):
-    pass
-
-class SelfEvalFailure(LLMOpsError):
-    pass
-
-class ToolExecutionError(LLMOpsError):
-    pass
-
-class UnsafeSQLError(LLMOpsError):
-    pass
-
-class AgentExecutionError(LLMOpsError):
-    pass
-
-class ObservabilityError(LLMOpsError):
-    pass
+class ConfigError(Exception): pass
+class ModelLoadError(Exception): pass
+class RetrievalError(Exception): pass
+class RerankerError(Exception): pass
+class RAGAnswerError(Exception): pass
+class GuardrailViolation(Exception): pass
+class SelfEvalFailure(Exception): pass
+class ToolExecutionError(Exception): pass
+class UnsafeSQLError(Exception): pass
+class AgentExecutionError(Exception): pass
+class ObservabilityError(Exception): pass
+class ValidationError(Exception): pass
